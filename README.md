@@ -1,2 +1,0 @@
-# GATEID
-Soil scanner
