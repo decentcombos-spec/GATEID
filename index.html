@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>GATEID</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen">
+    <div class="login-box">
+      <div class="login-logo">G</div>
+      <h1 id="app-title">GATEID</h1>
+      <p class="login-sub">Gate Identification & Load Tracking</p>
+      <form id="form-login">
+        <label>Username</label>
+        <input type="text" id="login-user" autocomplete="username" required placeholder="Username">
+        <label>Password</label>
+        <input type="password" id="login-pass" autocomplete="current-password" required placeholder="Password">
+        <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+      <div class="demo-box">
+        <div class="demo-label">Demo logins</div>
+        <div><b>admin</b> / admin123</div>
+        <div><b>operator</b> / op123</div>
+        <div><b>viewer</b> / view123</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="screen-main" class="screen hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-sm">G</div>
+        <div>
+          <div class="brand" id="brand-name">GATEID</div>
+          <div class="site-pill" id="site-pill">—</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="user-chip"></span>
+        <span id="shift-badge" class="shift-badge hidden">SHIFT LOCKED</span>
+        <button class="btn btn-ghost btn-sm" id="btn-logout">Logout</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="live">Live Gate</button>
+      <button class="tab" data-tab="log">Log</button>
+      <button class="tab" data-tab="trucks">Trucks</button>
+      <button class="tab" data-tab="sites">Sites</button>
+      <button class="tab" data-tab="users" id="tab-users">Users</button>
+      <button class="tab" data-tab="dash">Dashboard</button>
+      <button class="tab" data-tab="reports">Reports</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main class="main">
+
+      <!-- LIVE GATE -->
+      <section id="tab-live" class="tab-panel active">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Live Gate</h2>
+            <label class="switch-label">
+              <span>Auto Detect</span>
+              <input type="checkbox" id="auto-detect">
+              <span class="switch"></span>
+            </label>
+          </div>
+          <div class="cam-wrap">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" class="hidden"></canvas>
+            <div id="cam-overlay" class="cam-overlay">
+              <div>Camera off</div>
+              <small>Tap Start Camera to begin</small>
+            </div>
+            <div id="plate-banner" class="plate-banner hidden">
+              <div class="plate-label">Detected</div>
+              <div id="plate-text" class="plate-text">—</div>
+            </div>
+            <div id="unknown-warn" class="unknown-warn hidden">⚠ Unknown plate – not in registry</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-start-cam">Start Camera</button>
+            <button class="btn btn-secondary hidden" id="btn-stop-cam">Stop</button>
+            <button class="btn btn-accent" id="btn-capture">Capture Plate</button>
+            <button class="btn btn-ghost" id="btn-manual">Manual Entry</button>
+          </div>
+          <div id="ocr-bar" class="ocr-bar hidden">
+            <div class="spinner"></div>
+            <span id="ocr-msg">Reading plate…</span>
+          </div>
+        </div>
+
+        <!-- Quick log -->
+        <div id="quick-log" class="panel hidden">
+          <h3>Log Load</h3>
+          <div id="ql-photo-preview" class="photo-preview hidden">
+            <img id="ql-photo-img" alt="Capture">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-photo">Remove photo</button>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>License Plate *</label>
+              <input type="text" id="q-plate" class="plate-input" placeholder="ABC1234">
+            </div>
+            <div class="field">
+              <label>Direction</label>
+              <select id="q-dir">
+                <option value="IN">IN — Entering</option>
+                <option value="OUT">OUT — Leaving</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Truck / Unit</label>
+              <input type="text" id="q-truck" list="truck-dl" placeholder="Unit #">
+              <datalist id="truck-dl"></datalist>
+            </div>
+            <div class="field">
+              <label>Company</label>
+              <input type="text" id="q-company" placeholder="Hauler">
+            </div>
+            <div class="field">
+              <label>Driver</label>
+              <input type="text" id="q-driver" placeholder="Driver name">
+            </div>
+            <div class="field">
+              <label>Material</label>
+              <input type="text" id="q-material" list="mat-dl" placeholder="Material">
+              <datalist id="mat-dl"></datalist>
+            </div>
+            <div class="field">
+              <label>Ticket #</label>
+              <input type="text" id="q-ticket" placeholder="Optional">
+            </div>
+            <div class="field">
+              <label>Gross (lbs)</label>
+              <input type="number" id="q-gross" placeholder="0" min="0">
+            </div>
+            <div class="field">
+              <label>Tare (lbs)</label>
+              <input type="number" id="q-tare" placeholder="0" min="0">
+            </div>
+            <div class="field">
+              <label>Net (lbs)</label>
+              <input type="number" id="q-net" placeholder="auto" min="0" readonly>
+            </div>
+            <div class="field full">
+              <label>Notes</label>
+              <input type="text" id="q-notes" placeholder="Optional">
+            </div>
+          </div>
+          <div id="ql-unknown-msg" class="alert-warn hidden">This plate is not in the approved truck registry.</div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-save-log">Confirm & Log</button>
+            <button class="btn btn-ghost" id="btn-cancel-log">Cancel</button>
+            <button class="btn btn-secondary" id="btn-print-ticket" disabled>Print Ticket</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Recent at this gate</h3>
+          <div id="recent-list" class="feed"></div>
+        </div>
+      </section>
+
+      <!-- LOG -->
+      <section id="tab-log" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Gate Log</h2>
+            <div class="btn-row">
+              <input type="search" id="log-search" placeholder="Search…" class="search">
+              <select id="log-site-filter"><option value="all">All Sites</option></select>
+              <button class="btn btn-accent btn-sm" id="btn-export-xlsx">Excel</button>
+              <button class="btn btn-secondary btn-sm" id="btn-export-csv">CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th><th>Date</th><th>Time</th><th>Site</th><th>Plate</th><th>Dir</th>
+                  <th>Truck</th><th>Company</th><th>Net</th><th>Material</th><th>By</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="log-body"></tbody>
+            </table>
+          </div>
+          <div class="table-foot" id="log-count">0 records</div>
+        </div>
+      </section>
+
+      <!-- TRUCKS -->
+      <section id="tab-trucks" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Trucks Registry</h2>
+            <div class="btn-row">
+              <label class="switch-label" style="margin-right:8px">
+                <span>Warn unknowns</span>
+                <input type="checkbox" id="warn-unknowns" checked>
+                <span class="switch"></span>
+              </label>
+              <button class="btn btn-primary btn-sm" id="btn-add-truck">+ Add Truck</button>
+            </div>
+          </div>
+          <p class="hint">Approved haulers. Unknown plates show a warning on the Live Gate when “Warn unknowns” is on.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Plate</th><th>Unit</th><th>Company</th><th>Driver</th><th>Tare</th><th>Notes</th><th></th></tr>
+              </thead>
+              <tbody id="trucks-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SITES -->
+      <section id="tab-sites" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Sites / Gates</h2>
+            <button class="btn btn-primary btn-sm" id="btn-add-site">+ Add Site</button>
+          </div>
+          <div id="sites-grid" class="card-grid"></div>
+        </div>
+      </section>
+
+      <!-- USERS -->
+      <section id="tab-users" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Users</h2>
+            <button class="btn btn-primary btn-sm" id="btn-add-user">+ Add User</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Username</th><th>Name</th><th>Role</th><th>Sites</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody id="users-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section id="tab-dash" class="tab-panel">
+        <div class="stats">
+          <div class="stat"><div class="stat-n" id="s-today">0</div><div class="stat-l">Today</div></div>
+          <div class="stat"><div class="stat-n green" id="s-in">0</div><div class="stat-l">IN</div></div>
+          <div class="stat"><div class="stat-n amber" id="s-out">0</div><div class="stat-l">OUT</div></div>
+          <div class="stat"><div class="stat-n" id="s-tons">0</div><div class="stat-l">Net Tons</div></div>
+        </div>
+        <div class="panel">
+          <h3>By Site (Today)</h3>
+          <div id="dash-sites" class="feed"></div>
+        </div>
+        <div class="panel">
+          <h3>Recent Activity</h3>
+          <div id="dash-recent" class="feed"></div>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section id="tab-reports" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Daily / Shift Report</h2>
+            <div class="btn-row">
+              <input type="date" id="report-date">
+              <button class="btn btn-primary btn-sm" id="btn-run-report">Generate</button>
+              <button class="btn btn-accent btn-sm" id="btn-print-report">Print</button>
+            </div>
+          </div>
+          <div id="report-out" class="report-out">
+            <div class="empty">Select a date and tap Generate</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Shift Control</h3>
+          <p class="hint">Lock the current shift to prevent further edits to today’s logs. Unlock to continue.</p>
+          <div class="btn-row">
+            <button class="btn btn-accent" id="btn-lock-shift">End & Lock Shift</button>
+            <button class="btn btn-secondary" id="btn-unlock-shift">Unlock Shift</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Backup / Sync</h3>
+          <p class="hint">Export all data as a JSON file (backup or move to another device). Import restores it.</p>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="btn-export-json">Export Backup</button>
+            <label class="btn btn-secondary" style="cursor:pointer">
+              Import Backup
+              <input type="file" id="import-json" accept=".json,application/json" hidden>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="tab-settings" class="tab-panel">
+        <div class="panel">
+          <h2>Settings</h2>
+          <div class="field">
+            <label>Company / App Name</label>
+            <input type="text" id="set-name" placeholder="GATEID">
+          </div>
+          <div class="field">
+            <label>Materials (one per line)</label>
+            <textarea id="set-materials" rows="5"></textarea>
+          </div>
+          <div class="field">
+            <label>Default Direction</label>
+            <select id="set-dir">
+              <option value="IN">IN</option>
+              <option value="OUT">OUT</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>
+              <input type="checkbox" id="set-warn-unknown" checked> Warn on unknown plates
+            </label>
+          </div>
+          <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+        </div>
+        <div class="panel">
+          <h3>Data</h3>
+          <button class="btn btn-secondary" id="btn-reset-demo">Reset to Demo Data</button>
+          <p class="hint">Clears all logs, trucks, sites, users and restores demo set.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-bg" id="modal-bg"></div>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="modal-title">Edit</h3>
+        <button class="btn btn-ghost btn-sm" id="modal-x">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot" id="modal-foot"></div>
+    </div>
+  </div>
+
+  <!-- Ticket print area (hidden on screen, used for print) -->
+  <div id="print-ticket" class="print-only"></div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
